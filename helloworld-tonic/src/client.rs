@@ -17,6 +17,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ));
     let mut handlers = vec![];
 
+    // tryig a multithread client... tricky part using asyn inside a thread
     for i in 1..10 {
         let asynchnadle = Handle::current();
         let arcclient = Arc::clone(&client);
