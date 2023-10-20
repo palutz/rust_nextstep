@@ -1,32 +1,61 @@
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, Read};
+use serde::Deserialize;
+use quick_xml::de::from_str;
 
-use xml::reader::{EventReader, XmlEvent};
+#[allow(non_snake_case)]
+#[derive(Debug, Deserialize)]
+struct Result {
+    TotalMatches: i32,
+    TotalPages: i32,
+    PageNumber: i32,
+    item: Vec<Item>,
+}
 
-fn main() -> std::io::Result<()> {
-    let file = File::open("file.xml")?;
-    let file = BufReader::new(file); // Buffering is important for performance
+#[derive(Debug, Deserialize)]
+struct Item {
+    mid: String,
+    merchantname: String,
+    linkid: String,
+    createdon: String,
+    sku: String,
+    productname: String,
+    category: Category,
+    price: Price,
+    saleprice: Price,
+    upccode: String,
+    description: Description,
+    keywords: String,
+    linkurl: String,
+    imageurl: String,
+}
 
-    let parser = EventReader::new(file);
-    let mut depth = 0;
-    for e in parser {
-        match e {
-            Ok(XmlEvent::StartElement { name, .. }) => {
-                println!("{:spaces$}+{name}", "", spaces = depth * 2);
-                depth += 1;
-            }
-            Ok(XmlEvent::EndElement { name }) => {
-                depth -= 1;
-                println!("{:spaces$}-{name}", "", spaces = depth * 2);
-            }
-            Err(e) => {
-                eprintln!("Error: {e}");
-                break;
-            }
-            // There's more: https://docs.rs/xml-rs/latest/xml/reader/enum.XmlEvent.html
-            _ => {}
-        }
-    }
+#[derive(Debug, Deserialize)]
+struct Category {
+    primary: String,
+    secondary: String,
+}
 
-    Ok(())
+#[derive(Debug, Deserialize)]
+struct Price {
+    #[serde(rename = "@currency")]
+    currency: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct Description {
+    short: String,
+    long: String,
+}
+
+fn main() {
+    let mut file: BufReader<File> = BufReader::new(File::open("file.xml")
+                                    .expect("Error reading file"));
+    let mut str = String::new();
+    file.read_to_string(&mut str).expect("cannot read string");
+
+    let result: Result = from_str(&str).unwrap();
+
+    println!("{:?}", result);
+
 }
