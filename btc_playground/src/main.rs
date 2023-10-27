@@ -3,6 +3,12 @@ use bdk::database::MemoryDatabase;
 use bdk::electrum_client::Client;
 use bdk::{bitcoin, SyncOptions, Wallet};
 
+fn calculate_size<T>() -> usize {
+    let size = core::mem::size_of::<T>();
+    println!("a has type T and size = {size}");
+    size
+}
+
 fn main() -> Result<(), bdk::Error> {
     let client = Client::new("ssl://electrum.blockstream.info:60002")?;
     let blockchain = ElectrumBlockchain::from(client);
@@ -18,4 +24,13 @@ fn main() -> Result<(), bdk::Error> {
     println!("Descriptor balance: {} SAT", wallet.get_balance()?);
 
     Ok(())
+}
+
+#[cfg(test)]
+#[test]
+fn test_calcsize() {
+    println!("i32 size is {:?}", calculate_size::<i32>());
+    println!("i64 size is {:?}", calculate_size::<i64>());
+    println!("u8 size is {:?}", calculate_size::<u8>());
+    assert!(true);
 }
