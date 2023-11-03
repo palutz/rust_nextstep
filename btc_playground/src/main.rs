@@ -31,6 +31,14 @@ fn main() -> Result<(), bdk::Error> {
 fn test_calcsize() {
     println!("i32 size is {:?}", calculate_size::<i32>());
     println!("i64 size is {:?}", calculate_size::<i64>());
+    println!("i64 size is {:?}", calculate_size::<u64>());
     println!("u8 size is {:?}", calculate_size::<u8>());
+    println!("u8 size is {:?}", calculate_size::<u16>());
+    assert!(true);
+}
+#[test]
+fn calc_size() {
+    let s = core::mem::size_of::<u64>();
+    println!("{s}");
     assert!(true);
 }
