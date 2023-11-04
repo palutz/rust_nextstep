@@ -1,19 +1,14 @@
 use deltalake::open_table;
+use futures::executor::block_on;
 
 fn main() {
     println!("Hello deltalake...");
-    let _ = async {
-        let table = 
-            match open_table("../data/simple_table").await {
-                Ok(t) => t,
-                Err(e) => panic!("{}", e),
-            };
-        let files = table.get_files();
-        println!("found {:?} files", files.len());
-        for f in files {
-            println!("printing files...");
-            println!("file: {:?}", f.filename().unwrap());
-        }
-    };
+    let table = block_on(open_table("./data/simple_table")).unwrap();
+    println!("{table}");
+
+    let files = table.get_files();
+    for f in files {
+        println!("{f}");
+    }
     println!("done");
 }

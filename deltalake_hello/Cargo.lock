@@ -501,6 +501,8 @@ name = "deltalake_hello"
 version = "0.1.0"
 dependencies = [
  "deltalake",
+ "futures",
+ "tokio",
 ]
 
 [[package]]
