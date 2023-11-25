@@ -9,6 +9,8 @@ struct Node<T> {
     next: Link<T>,
 }
 
+pub struct IntoIter<T>(List<T>); // Tuple struct!! Usufel as type wrapper
+
 impl<T> List<T> {
     pub fn new() -> Self {
         List { head: None }
@@ -38,6 +40,10 @@ impl<T> List<T> {
     pub fn peek_mut(&mut self) -> Option<&mut T> {
         self.head.as_mut().map(|node| &mut node.elem)
     }
+
+    pub fn into_iter(self) -> IntoIter<T> {
+        IntoIter(self)
+    }
 }
 
 impl<T> Drop for List<T> {
@@ -46,6 +52,15 @@ impl<T> Drop for List<T> {
         while let Some(mut boxed_node) = cur_link {
             cur_link = boxed_node.next.take();
         }
+    }
+}
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+    fn next(&mut self) -> Option<Self::Item> {
+        // access fields of a tuple struct numerically
+        //self : IntoIter<T>, self.0 : List<T> ( = IntoIter.0 : List<T> )
+        self.0.pop()
     }
 }
 
@@ -117,5 +132,18 @@ mod test {
 
         alist.peek_mut().map(|val| *val = 13);
         assert_eq!(Some(&13), alist.peek());
+    }
+    #[test]
+    fn into_iter() {
+        let mut list = List::new();
+        list.push(1);
+        list.push(2);
+        list.push(3);
+
+        let mut iter = list.into_iter();
+        assert_eq!(iter.next(), Some(3));
+        assert_eq!(iter.next(), Some(2));
+        assert_eq!(iter.next(), Some(1));
+        assert_eq!(iter.next(), None);
     }
 }
