@@ -7,7 +7,8 @@ edition = "2021"
 
 [dependencies]
 chrono = "0.4.31"
-deltalake = "0.16.5"
+datafusion-expr = "34.0.0"
+deltalake = { version = "0.16.5", features = ["datafusion"] }
 futures = "0.3.30"
 polars = { version = "0.36.2", features = ["lazy", "csv", "parquet"] }
-polars-arrow = "0.36.2"
+# polars-arrow = "0.36.2"
