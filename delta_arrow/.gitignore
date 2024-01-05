@@ -1,3 +1,7 @@
+*.swp
+
 /target
 
 /data_csv
+
+/data
