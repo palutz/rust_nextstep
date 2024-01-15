@@ -64,7 +64,8 @@ pub async fn update_with_delta() {
     //                            vec![table_path], 
     //                            &[]).await;  // take all the columns
                                 //&["Project Name", "Project Type", "URL to project", "Founded year (project)"]).await;
-    let mut table = deltalake::open_table(table_path).await.unwrap(); 
+    let mut table = deltalake::open_table(table_path)
+    .await.unwrap(); 
     let schema = Arc::new(ArrowSchema::new(vec![
             Field::new("Project Name", ArrowDataType::Utf8, true),
             Field::new("Project Type", ArrowDataType::Utf8, true),
