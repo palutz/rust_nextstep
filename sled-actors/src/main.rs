@@ -1,75 +1,95 @@
 use actix::prelude::*;
-use actix::dev::{ MessageResponse, OneshotSender };
 
 #[derive(Message)]
-#[rtype(result = "Responses")]
-enum Messages {
-    Command {
-    cmd_id : i32,
-    payload : String,
-},
-    Event,
+#[rtype(result = "()")]
+struct OrderShipped(usize);
+
+#[derive(Message)]
+#[rtype(result = "()")]
+struct Ship(usize);
+
+/// Subscribe to order shipped event.
+#[derive(Message)]
+#[rtype(result = "()")]
+struct Subscribe(pub Recipient<OrderShipped>);
+
+/// Actor that provides order shipped event subscriptions
+struct OrderEvents {
+    subscribers: Vec<Recipient<OrderShipped>>,
 }
 
-enum Responses {
-    AllOk,
-    Problem,
-}
-
-impl<A, M> MessageResponse<A, M> for Responses
-where
-    A: Actor,
-    M: Message<Result = Responses>,
-{
-    fn handle(self, ctx: &mut A::Context, tx: Option<OneshotSender<M::Result>>) {
-        if let Some(tx) = tx {
-            tx.send(self);
+impl OrderEvents {
+    fn new() -> Self {
+        OrderEvents {
+            subscribers: vec![]
         }
     }
 }
 
-struct MyActor {
-    count: usize,
-}
-
-impl Actor for MyActor {
+impl Actor for OrderEvents {
     type Context = Context<Self>;
 }
 
-impl Handler<Messages> for MyActor {
-    type Result = Responses;
-
-    fn handle(&mut self, msg: Messages, _ctx: &mut Context<Self>) -> Self::Result {
-        match msg {
-            Messages::Command { .. }  => Responses::AllOk,
-            Messages::Event => Responses::Problem,
+impl OrderEvents {
+    /// Send event to all subscribers
+    fn notify(&mut self, order_id: usize) {
+        for subscr in &self.subscribers {
+           subscr.do_send(OrderShipped(order_id));
         }
     }
 }
 
+/// Subscribe to shipment event
+impl Handler<Subscribe> for OrderEvents {
+    type Result = ();
 
-#[actix_rt::main]
-async fn main() {
-    // start new actor
-    let addr = MyActor { count: 10 }.start();
-
-    // send message and get future fo,
-    let c = Messages::Command {
-        cmd_id : 1,
-        payload : "First cmd".to_string(),
-    };
-    //let res = addr.send(Ping(10)).await;
-    let res = addr.send(c);
-
-    match res.await {
-        Ok(rsps) => match rsps {
-                        Responses::AllOk => println!("Ok!!!"),
-                        Responses::Problem => println!("ooopss"),
-                }
-        _ => todo!(),
+    fn handle(&mut self, msg: Subscribe, _: &mut Self::Context) {
+        self.subscribers.push(msg.0);
     }
-    // handle() returns tokio handle
+}
 
-    // stop system and exit
-    System::current().stop();
+/// Subscribe to ship message
+impl Handler<Ship> for OrderEvents {
+    type Result = ();
+    fn handle(&mut self, msg: Ship, ctx: &mut Self::Context) -> Self::Result {
+        self.notify(msg.0);
+        System::current().stop();
+    }
+}
+
+/// Email Subscriber
+struct EmailSubscriber;
+impl Actor for EmailSubscriber {
+    type Context = Context<Self>;
+}
+
+impl Handler<OrderShipped> for EmailSubscriber {
+    type Result = ();
+    fn handle(&mut self, msg: OrderShipped, _ctx: &mut Self::Context) -> Self::Result {
+        println!("Email sent for order {}", msg.0)
+    }
+
+}
+struct SmsSubscriber;
+impl Actor for SmsSubscriber {
+    type Context = Context<Self>;
+}
+
+impl Handler<OrderShipped> for SmsSubscriber {
+    type Result = ();
+    fn handle(&mut self, msg: OrderShipped, _ctx: &mut Self::Context) -> Self::Result {
+        println!("SMS sent for order {}", msg.0)
+    }
+
+}
+
+#[actix::main]
+async fn main() -> Result<(), actix::MailboxError> {
+    let email_subscriber = Subscribe(EmailSubscriber {}.start().recipient());
+    let sms_subscriber = Subscribe(SmsSubscriber {}.start().recipient());
+    let order_event = OrderEvents::new().start();
+    order_event.send(email_subscriber).await?;
+    order_event.send(sms_subscriber).await?;
+    order_event.send(Ship(1)).await?;
+    Ok(())
 }
