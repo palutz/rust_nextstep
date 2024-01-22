@@ -1,0 +1,31 @@
+{
+    "commitInfo": {
+        "timestamp": 1587968586154,
+        "operation": "WRITE"
+        // "operationParameters": {
+        //     "mode": "ErrorIfExists",
+        //     "partitionBy": "[]"
+        // },
+        // "isBlindAppend": true
+    }
+}
+{
+    "protocol": {
+        "minReaderVersion": 1,
+        "minWriterVersion": 2
+    }
+}
+{
+    "metaData": {
+        "id": "5fba94ed-9794-4965-ba6e-6ee3c0d22af9",
+        "format": {
+            "provider": "json",
+            "options": {}
+        },
+        "schemaString": "{\"type\":\"struct\",\"fields\":[{\"name\":\"id\",\"type\":\"long\",\"nullable\":true,\"metadata\":{}}]}",
+        "partitionColumns": [],
+        "configuration": {},
+        "createdTime": 1587968585495,
+        "payload": "... <josn string> "
+    }
+}
