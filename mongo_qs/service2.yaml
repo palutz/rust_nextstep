@@ -1,0 +1,37 @@
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  annotations:
+    client.knative.dev/user-image: europe-west1-docker.pkg.dev/peak-stream-408711/cloud-run-source-deploy/mongo_qs@sha256:1b8671d9c74c3504f29c883622580b90ce4b32ef0669c6ed0b6b022465ea4bab
+    run.googleapis.com/creator: stefano@thegrid.id
+    run.googleapis.com/lastModifier: stefano@thegrid.id
+  labels:
+    cloud.googleapis.com/location: europe-west1
+    run.googleapis.com/lastUpdatedTime: '2024-01-24T21:56:51.858543Z'
+  name: mongo-qs
+  namespace: '134512449529'
+spec:
+  template:
+    metadata:
+      annotations:
+        client.knative.dev/user-image: europe-west1-docker.pkg.dev/peak-stream-408711/cloud-run-source-deploy/mongo_qs@sha256:1b8671d9c74c3504f29c883622580b90ce4b32ef0669c6ed0b6b022465ea4bab
+        run.googleapis.com/client-name: cloud-console
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      taskCount: 1
+      template:
+        spec:
+          containers:
+          - command:
+            - ./mongo_qs
+            env:
+            - name: MONGODB_URI
+              value: mongodb+srv://johndoe:HONrtzSpSZE0WSMF@cluster0.p8ivwpr.mongodb.net/
+            image: europe-west1-docker.pkg.dev/peak-stream-408711/cloud-run-source-deploy/mongo_qs@sha256:1b8671d9c74c3504f29c883622580b90ce4b32ef0669c6ed0b6b022465ea4bab
+            resources:
+              limits:
+                cpu: 1000m
+                memory: 512Mi
+          maxRetries: 3
+          serviceAccountName: 134512449529-compute@developer.gserviceaccount.com
+          timeoutSeconds: '600'

@@ -1,0 +1,15 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: hello_gcp-rust
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+        - image: docker.io/{username}/helloworld-rust
+          env:
+          - name: TARGET
+            value: "Rust Sample v1"
+          - name: MONGO_URI
+            value: "MONGODB_URI=mongodb+srv://johndoe:HONrtzSpSZE0WSMF@cluster0.p8ivwpr.mongodb.net/"
