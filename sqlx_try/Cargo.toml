@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 sqlx = { version = "0.7.3", features = ["runtime-tokio-rustls", "postgres", "macros"] }
+tokio = { version = "1.36.0", features = ["rt", "macros"] }
