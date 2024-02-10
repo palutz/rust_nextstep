@@ -1,8 +1,9 @@
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
+// use candle_core::{DType, Device, Tensor};
+use candle_core::{Device, Tensor};
 use serde::{Deserialize, Serialize};
-use candle_core::{ DType, Device, Tensor};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::thread::{self, JoinHandle};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AskQuestionSchema {
@@ -13,19 +14,18 @@ pub struct AskQuestionSchema {
 
 #[derive(Default, Clone)]
 pub struct Embeddings {
-    pub q  : String,
-    pub d  : String,
-    pub ha : String,
+    pub q: String,
+    pub d: String,
+    pub ha: String,
     pub aia: String,
 }
 
-#[derive(Default,Clone)]
+#[derive(Default, Clone)]
 pub struct CalcEmbeddings {
-    pub embeds : Embeddings,
-    pub bearer : String,
-    pub ai_url : String,
+    pub embeds: Embeddings,
+    pub bearer: String,
+    pub ai_url: String,
 }
-
 
 // Create an OpenAI request that specifies a system and an user context
 fn create_sys_usr_req(
@@ -122,7 +122,7 @@ fn chatgpt_candidate(params: Arc<(AskQuestionSchema, String, String)>) -> String
     let bearer = prs.1.as_str();
     let openai_url = prs.2.as_str();
     let q_gpt = prepare_ai_question(&qs.domain, &qs.question);
-    let res_q_uk = ask_openai(openai_url,bearer, q_gpt);
+    let res_q_uk = ask_openai(openai_url, bearer, q_gpt);
     let q_json = resp_clean_json(&res_q_uk);
     let q_content = q_json["choices"][0]["message"]["content"]
         .as_str()
@@ -139,7 +139,9 @@ fn chatgpt_candidate(params: Arc<(AskQuestionSchema, String, String)>) -> String
 //     bearer: &[u8],
 //     openai_url: &[u8],
 // fn translate_all_sentences(params: Arc<(AskQuestionSchema, [u8],[u8])>) -> HashMap<String, String> {
-fn translate_all_sentences(params: Arc<(AskQuestionSchema, String, String)>) -> HashMap<String, String> {
+fn translate_all_sentences(
+    params: Arc<(AskQuestionSchema, String, String)>,
+) -> HashMap<String, String> {
     let mut handles: Vec<JoinHandle<(String, String)>> = vec![];
 
     for i in 0..3 {
@@ -196,14 +198,19 @@ fn translate_all_sentences(params: Arc<(AskQuestionSchema, String, String)>) -> 
 
 pub fn calculate_embeddings(
     // sentences: &'static Vec<String>,bearer: &'static str,openai_url: &'static str
-    params : Arc<CalcEmbeddings>
+    params: Arc<CalcEmbeddings>,
 ) -> HashMap<String, Vec<f64>> {
     let mut handles: Vec<JoinHandle<(String, Vec<f64>)>> = vec![];
 
     for i in 0..4 {
         let arcp = Arc::clone(&params);
         let handle = thread::spawn(move || {
-            let th_sentences : [String; 4] = [arcp.embeds.q.to_owned(), arcp.embeds.d.to_owned(), arcp.embeds.ha.to_owned(), arcp.embeds.aia.to_owned()];
+            let th_sentences: [String; 4] = [
+                arcp.embeds.q.to_owned(),
+                arcp.embeds.d.to_owned(),
+                arcp.embeds.ha.to_owned(),
+                arcp.embeds.aia.to_owned(),
+            ];
             let b = &arcp.bearer;
             let oai_url = &arcp.ai_url;
 
@@ -236,39 +243,61 @@ pub fn calculate_embeddings(
 }
 
 
-fn calculate_cosine_sim(sentences_values: &HashMap<String, Vec<f64>>) {
-    let mut handles: Vec<JoinHandle<(String, Vec<f64>)>> = vec![];
-
-    let arc_hash = Arc::new(sentences_values);
-    let mut similarities = Arc::new(Mutex::new(vec![]));
-    let sentences : Vec<String>  = Arc::clone(&arc_hash).into_keys().collect();
-    let keylength = sentences.len();
-    for i in 0..keylength {
-        let (k_v, similarities) = (Arc::clone(&arc_hash), Arc::clone(&similarities));
-        let h = thread::spawn(move || {
-                    let sentences : Vec<String>  = arc_hash.into_keys().collect();
-                    if let Some(v_i) = k_v.get(&sentences[i]) {
-                        for j in (i + 1)..keylength {
-                            if let Some(v_j) = k_v.get(&sentences[j]) {
-                                let vi32 : Vec<f32> = v_i.into_iter().map(|x| *x as f32).collect();
-                                let e_i = Tensor::new(vi32, &Device::Cpu).unwrap();
-                                let vj32 : Vec<f32> = v_j.into_iter().map(|x| *x as f32).collect();
-                                let e_j = Tensor::new(vj32, &Device::Cpu).unwrap();
-                                let sum_ij = (*e_i * *e_j).unwrap().sum_all().unwrap().to_scalar::<f32>().unwrap().;
-                                let sum_i2 = (&e_i * &e_i).unwrap().sum_all().unwrap().to_scalar::<f32>().unwrap().;
-                                let sum_j2 = (&e_j * &e_j).unwrap().sum_all().unwrap().to_scalar::<f32>().unwrap().;
-                                let cosine_similarity = sum_ij / (sum_i2 * sum_j2).sqrt();
-                                let mut similarities = similarities.lock().unwrap();
-                                *similarities.push((cosine_similarity, i, j));
-                            }
-                        }
-                    }
-        })
+fn vechashmap (arc_hashmap: HashMap<String, Vec<f64>>) {
+    let mut vv : Vec<(String, Vec<f64>)> = vec![];
+    for (k, v) in arc_hashmap.clone().iter() {
+        vv.push((k.to_string(), v.clone()));
     };
-    similarities.sort_by(|u, v| v.0.total_cmp(&u.0));
-    for &(score, i, j) in similarities[..5].iter() {
-        println!("score: {score:.2} '{}' '{}'", sentences[i], sentences[j])
+    let _ = vv.len();
+}
+    //let mut sent_values : Vec<(String, Vec<f64>)> = vec![];
+    //for (k, v) in arc_hashmap.clone().iter() {
+    //    sent_values.push((k.to_string(), v.clone()));
+    //};
+
+//fn calculate_cosine_sim(arc_hashmap: Arc<HashMap<String, Vec<f64>>>) {
+
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+struct Similarity {
+    value : f32,
+    i     : i32,
+    j     : i32,
+}
+
+fn calculate_cosine_sim(sent_values : Vec<(String, Vec<f64>)>) {
+    let keylength = sent_values.len();
+    let mut similarities : Vec<Similarity> = vec![];
+    for i in 0..keylength {
+        //let v_i : Vec<f64> = sent_values[i].clone().1;
+
+        for j in (i+1)..keylength {
+            //let v_j : Vec<f64> = sent_values[j].1;
+
+            let vi32: Vec<f32> = sent_values[i].1.clone()
+                                    .into_iter()
+                                    .map(|x| x as f32).collect();
+            let e_i = Tensor::new(vi32, &Device::Cpu).unwrap();
+            let vj32: Vec<f32> = sent_values[j].1.clone().into_iter().map(|x| x as f32).collect();
+            let e_j = Tensor::new(vj32, &Device::Cpu).unwrap();
+            //tensors multiplication
+            let sum_ij : f32 = (e_i.mul(&e_j)).unwrap().sum_all().unwrap().to_scalar::<f32>().unwrap();
+            let sum_i2 : f32 = (e_i.mul(&e_i)).unwrap().sum_all().unwrap().to_scalar::<f32>().unwrap();
+            let sum_j2 : f32 = (e_j.mul(&e_j)).unwrap().sum_all().unwrap().to_scalar::<f32>().unwrap();
+
+            let cosine_similarity = sum_ij / (sum_i2 * sum_j2).sqrt();
+            similarities.push(Similarity {
+                value : cosine_similarity,
+                i : i as i32,
+                j : j as i32,
+            });
+        }
     }
+
+    similarities.sort_by(|a, b| a.value.partial_cmp(&b.value).unwrap());
+    //similarities.sort_by(|u, v| v.0.total_cmp(&u.0));
+    //for &(score, i, j) in similarities[..5].iter() {
+    //    println!("score: {score:.2} '{}' '{}'", sentences[i], sentences[j])
+    //}
 }
 
 // CALCULATE DISTANCES fro the embeddings
@@ -313,7 +342,6 @@ fn calculate_cosine_sim(sentences_values: &HashMap<String, Vec<f64>>) {
 //     return distances
 //
 
-
 ///
 /// Entry point for the OpenAI workflow
 ///
@@ -322,9 +350,7 @@ pub fn open_ai_entry(bearer: String, askquestion: AskQuestionSchema) -> HashMap<
     let openai_url = "https://api.openai.com/v1/chat/completions".to_owned();
     let embedding_url = "https://api.openai.com/v1/embeddings".to_owned();
 
-    let askq = AskQuestionSchema {
-        ..askquestion
-    };
+    let askq = AskQuestionSchema { ..askquestion };
     // let params = Arc::new((askq, bearer, openai_url));
     let params = Arc::new((askq, bearer, openai_url));
     let translated: HashMap<String, String> =
@@ -332,15 +358,15 @@ pub fn open_ai_entry(bearer: String, askquestion: AskQuestionSchema) -> HashMap<
         translate_all_sentences(Arc::clone(&params));
     let ai_answer: String = chatgpt_candidate(Arc::clone(&params));
     let embeds = Embeddings {
-        q  : translated.get("Q").unwrap().to_owned(),
-        d  : translated.get("D").unwrap().to_owned(),
-        ha : translated.get("HA").unwrap().to_owned(),
+        q: translated.get("Q").unwrap().to_owned(),
+        d: translated.get("D").unwrap().to_owned(),
+        ha: translated.get("HA").unwrap().to_owned(),
         aia: ai_answer,
     };
     let calc_embed = CalcEmbeddings {
         embeds,
-        bearer : params.1.to_owned(),
-        ai_url : params.2.to_owned(),
+        bearer: params.1.to_owned(),
+        ai_url: params.2.to_owned(),
     };
 
     // let _ = calculate_embeddings(&sentences, &params.1.to_owned(), &params.2.to_owned());
