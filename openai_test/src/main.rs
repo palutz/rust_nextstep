@@ -2,15 +2,20 @@ mod lib_openai;
 
 use std::time::Instant;
 // use std::sync::Arc;
+use tracing::info;
+use tracing_subscriber;
+
 use lib_openai::*;
 
 
 fn main() {
     let start = Instant::now();
+    tracing_subscriber::fmt::init();
 
     let api_token = std::env::var("OPENAI_API_KEY").expect("expected there to be an openai api token");
     // let embedding_url = "https://api.openai.com/v1/embeddings".to_owned();
     let bearer = format!("Bearer {api_token}");
+    info!(bearer, "Bearer token found");
 
     //let embeds = Embeddings {
     //    q  : "What is the forecast for next week?".to_string(),

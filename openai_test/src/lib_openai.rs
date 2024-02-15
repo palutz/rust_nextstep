@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::mpsc;
 use std::thread::{self, JoinHandle};
 use candle_core::{ Device, Tensor};
 
@@ -138,14 +139,16 @@ fn chatgpt_candidate(params: Arc<(AskQuestionSchema, String, String)>) -> String
 //     openai_url: &[u8],
 // fn translate_all_sentences(params: Arc<(AskQuestionSchema, [u8],[u8])>) -> HashMap<String, String> {
 fn translate_all_sentences(params: Arc<(AskQuestionSchema, String, String)>) -> HashMap<String, String> {
-    let mut handles: Vec<JoinHandle<(String, String)>> = vec![];
+    let (tx, rx) = mpsc::channel();
 
     for i in 0..3 {
         let arcp = Arc::clone(&params);
-        let handle = thread::spawn(move || {
+        let tx = tx.clone();
+        thread::spawn(move || {
             let aqs = &arcp.0;
             let b = &arcp.1.as_str();
             let oai_url = &arcp.2.as_str(); //std::str::from_utf8(&arcp.2).unwrap();
+            println!("i = {i}");
             if i == 0 {
                 let q_uk = translate2eng(aqs.question.as_str());
                 let res_q_uk = ask_openai(oai_url, b, q_uk);
@@ -153,7 +156,7 @@ fn translate_all_sentences(params: Arc<(AskQuestionSchema, String, String)>) -> 
                 let q_uk_content = q_uk_json["choices"][0]["message"]["content"]
                     .as_str()
                     .unwrap_or_else(|| "error!!!");
-                return ("Q".to_string(), q_uk_content.to_string());
+                tx.send(("Q".to_string(), q_uk_content.to_string())).unwrap();
             } else if i == 1 {
                 let d_uk = translate2eng(aqs.domain.as_str());
                 let res_d_uk = ask_openai(oai_url, b, d_uk);
@@ -161,7 +164,7 @@ fn translate_all_sentences(params: Arc<(AskQuestionSchema, String, String)>) -> 
                 let d_uk_content = d_uk_json["choices"][0]["message"]["content"]
                     .as_str()
                     .unwrap_or_else(|| "error!!!");
-                return ("D".to_string(), d_uk_content.to_string());
+                tx.send(("D".to_string(), d_uk_content.to_string())).unwrap();
             } else {
                 // i == 2
                 let ha_uk = translate2eng(aqs.hanswer.as_str());
@@ -170,17 +173,21 @@ fn translate_all_sentences(params: Arc<(AskQuestionSchema, String, String)>) -> 
                 let ha_uk_content = ha_uk_json["choices"][0]["message"]["content"]
                     .as_str()
                     .unwrap_or_else(|| "error!!!");
-                return ("HA".to_string(), ha_uk_content.to_string());
+                tx.send(("HA".to_string(), ha_uk_content.to_string())).unwrap();
             }
         });
-        handles.push(handle);
     }
 
+    drop(tx);
+
     let mut res: HashMap<String, String> = HashMap::new();
-    for h in handles {
-        let (k, v) = h.join().unwrap(); // saving the result from the threads
+    // for _ in 0..3 {
+    while let Ok((k,v)) = rx.recv() {
+        // let (k, v) = rx.recv().unwrap();
+        // println!("k = {k}, v = {v}");
         res.insert(k, v);
     }
+    // println!("res = {res:?}");
     res
 }
 
@@ -334,14 +341,11 @@ fn calculate_cosine_sim(sent_values : Arc<Vec<(String, Vec<f64>)>>) {
 ///
 /// Entry point for the OpenAI workflow
 ///
-#[warn(dead_code)]
 pub fn open_ai_entry(bearer: String, askquestion: AskQuestionSchema) -> HashMap<String, Vec<f64>> {
-    let openai_url = "https://api.openai.com/v1/chat/completions".to_owned();
-    let embedding_url = "https://api.openai.com/v1/embeddings".to_owned();
+    let openai_url : String = "https://api.openai.com/v1/chat/completions".to_owned();
+    let embedding_url : String = "https://api.openai.com/v1/embeddings".to_owned();
 
-    let askq = AskQuestionSchema { ..askquestion };
-    // let params = Arc::new((askq, bearer, openai_url));
-    let params = Arc::new((askq, bearer, openai_url));
+    let params = Arc::new((askquestion, bearer, openai_url));
         // translate_all_sentences(&askq, bearer, openai_url);
     let translated: HashMap<String, String> = translate_all_sentences(Arc::clone(&params));
     let ai_answer: String = chatgpt_candidate(Arc::clone(&params));
