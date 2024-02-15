@@ -258,36 +258,49 @@ struct Similarity {
     j     : i32,
 }
 
-fn calculate_cosine_sim(sent_values : Vec<(String, Vec<f64>)>) {
+fn calculate_cosine_sim(sent_values : Arc<Vec<(String, Vec<f64>)>>) {
     let keylength = sent_values.len();
-    let mut similarities : Vec<Similarity> = vec![];
+    let mut handles : Vec<JoinHandle<Vec<Similarity>>> = vec![];
     for i in 0..keylength {
+        let vals = Arc::clone(&sent_values);
         //let v_i : Vec<f64> = sent_values[i].clone().1;
+        let h = thread::spawn (move || {
+            let mut similarities : Vec<Similarity> = vec![];
+            for j in (i+1)..keylength {
+                let vi32: Vec<f32> = vals[i].1.clone()
+                                        .into_iter().map(|x| x as f32).collect();
+                let e_i = Tensor::new(vi32, &Device::Cpu).unwrap();
+                let vj32: Vec<f32> = vals[j].1.clone()
+                                        .into_iter().map(|x| x as f32).collect();
+                let e_j = Tensor::new(vj32, &Device::Cpu).unwrap();
+                //tensors multiplication
+                let sum_ij : f32 = (e_i.mul(&e_j)).unwrap().sum_all().unwrap().to_scalar::<f32>().unwrap();
+                let sum_i2 : f32 = (e_i.mul(&e_i)).unwrap().sum_all().unwrap().to_scalar::<f32>().unwrap();
+                let sum_j2 : f32 = (e_j.mul(&e_j)).unwrap().sum_all().unwrap().to_scalar::<f32>().unwrap();
 
-        for j in (i+1)..keylength {
-            let vi32: Vec<f32> = sent_values[i].1.clone()
-                                    .into_iter().map(|x| x as f32).collect();
-            let e_i = Tensor::new(vi32, &Device::Cpu).unwrap();
-            let vj32: Vec<f32> = sent_values[j].1.clone()
-                                    .into_iter().map(|x| x as f32).collect();
-            let e_j = Tensor::new(vj32, &Device::Cpu).unwrap();
-            //tensors multiplication
-            let sum_ij : f32 = (e_i.mul(&e_j)).unwrap().sum_all().unwrap().to_scalar::<f32>().unwrap();
-            let sum_i2 : f32 = (e_i.mul(&e_i)).unwrap().sum_all().unwrap().to_scalar::<f32>().unwrap();
-            let sum_j2 : f32 = (e_j.mul(&e_j)).unwrap().sum_all().unwrap().to_scalar::<f32>().unwrap();
+                let cosine_similarity = sum_ij / (sum_i2 * sum_j2).sqrt();
+                similarities.push(Similarity {
+                    value : cosine_similarity,
+                    i : i as i32,
+                    j : j as i32,
+                });
+            }
+            similarities
+        });
+        handles.push(h);
+    };
 
-            let cosine_similarity = sum_ij / (sum_i2 * sum_j2).sqrt();
-            similarities.push(Similarity {
-                value : cosine_similarity,
-                i : i as i32,
-                j : j as i32,
-            });
-        }
+
+    let mut sims : Vec<Similarity> = vec![];
+    for h in handles {
+        let mut r_sim : Vec<Similarity> = h.join().unwrap();
+        sims.append(&mut r_sim);
     }
+
 
     // `similarities.sort_by(|a, b| a.value.partial_cmp(&b.value).unwrap());
     //similarities.sort_by(|u, v| v.0.total_cmp(&u.0));
-    for &similarity in similarities[..5].iter() {
+    for &similarity in sims[..5].iter() {
         let i = similarity.i as usize;
         let j = similarity.j as usize;
         let sentence_i = sent_values[i].0.clone();
@@ -371,7 +384,7 @@ pub fn open_ai_entry(bearer: String, askquestion: AskQuestionSchema) -> HashMap<
         vec_values.push((amap.0.clone(), amap.1.clone()));
     }
 
-    let cres = calculate_cosine_sim(vec_values);
+    let cres = calculate_cosine_sim(Arc::new(vec_values));
     hm
 }
 // let body = reqwest::blocking::get("https://www.rust-lang.org").unwrap().text();
