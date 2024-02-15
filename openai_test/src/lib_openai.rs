@@ -196,10 +196,12 @@ fn translate_all_sentences(params: Arc<(AskQuestionSchema, String, String)>) -> 
 pub fn calculate_embeddings(params : Arc<CalcEmbeddings>) -> HashMap<String, Vec<f64>> {
     let mut handles: Vec<JoinHandle<(String, Vec<f64>)>> = vec![];
 
+    let arcp = Arc::clone(&params);
+    let th_sentences : Arc<[String; 4]> = Arc::new([arcp.embeds.q.to_owned(), arcp.embeds.d.to_owned(), arcp.embeds.ha.to_owned(), arcp.embeds.aia.to_owned()]);
     for i in 0..4 {
-        let arcp = Arc::clone(&params);
+        let arcp = Arc::clone(&arcp);
+        let th_sentences = Arc::clone(&th_sentences);
         let handle = thread::spawn(move || {
-            let th_sentences : [String; 4] = [arcp.embeds.q.to_owned(), arcp.embeds.d.to_owned(), arcp.embeds.ha.to_owned(), arcp.embeds.aia.to_owned()];
             let b = &arcp.bearer;
             let oai_url = &arcp.ai_url;
 
