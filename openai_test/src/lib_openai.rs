@@ -258,21 +258,19 @@ struct Similarity {
     j     : i32,
 }
 
-fn calculate_cosine_sim(sent_values : Vec<(String, Vec<f64>)>) {
-    let val_shared : Arc<Vec<(String, Vec<f64>)>> = Arc::new(sent_values);
-    let val_cloned = Arc::clone(&val_shared);
-    let keylength = Arc::new(val_cloned.len());
+fn calculate_cosine_sim(sent_values : Arc<Vec<(String, Vec<f64>)>>) {
+    let keylength = sent_values.len();
     let mut handles : Vec<JoinHandle<Vec<Similarity>>> = vec![];
-    for i in 0..*keylength {
+    for i in 0..keylength {
+        let vals = Arc::clone(&sent_values);
         //let v_i : Vec<f64> = sent_values[i].clone().1;
-        let keylength = Arc::clone(&keylength);
         let h = thread::spawn (move || {
             let mut similarities : Vec<Similarity> = vec![];
             for j in (i+1)..keylength {
-                let vi32: Vec<f32> = sent_values[i].1.clone()
+                let vi32: Vec<f32> = vals[i].1.clone()
                                         .into_iter().map(|x| x as f32).collect();
                 let e_i = Tensor::new(vi32, &Device::Cpu).unwrap();
-                let vj32: Vec<f32> = sent_values[j].1.clone()
+                let vj32: Vec<f32> = vals[j].1.clone()
                                         .into_iter().map(|x| x as f32).collect();
                 let e_j = Tensor::new(vj32, &Device::Cpu).unwrap();
                 //tensors multiplication
@@ -293,16 +291,16 @@ fn calculate_cosine_sim(sent_values : Vec<(String, Vec<f64>)>) {
     };
 
 
-    let mut similarities : Vec<Similarity> = vec![];
+    let mut sims : Vec<Similarity> = vec![];
     for h in handles {
         let mut r_sim : Vec<Similarity> = h.join().unwrap();
-        similarities.append(&r_sim);
+        sims.append(&mut r_sim);
     }
 
 
     // `similarities.sort_by(|a, b| a.value.partial_cmp(&b.value).unwrap());
     //similarities.sort_by(|u, v| v.0.total_cmp(&u.0));
-    for &similarity in similarities[..5].iter() {
+    for &similarity in sims[..5].iter() {
         let i = similarity.i as usize;
         let j = similarity.j as usize;
         let sentence_i = sent_values[i].0.clone();
@@ -386,7 +384,7 @@ pub fn open_ai_entry(bearer: String, askquestion: AskQuestionSchema) -> HashMap<
         vec_values.push((amap.0.clone(), amap.1.clone()));
     }
 
-    let cres = calculate_cosine_sim(vec_values);
+    let cres = calculate_cosine_sim(Arc::new(vec_values));
     hm
 }
 // let body = reqwest::blocking::get("https://www.rust-lang.org").unwrap().text();
